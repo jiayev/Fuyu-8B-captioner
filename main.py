@@ -72,11 +72,11 @@ class Fuyu():
         generation_text = self.tokenizer.decode(generation_output[0][prompt_len:], skip_special_tokens=True)
         return generation_text.lstrip()
 
-Fuyu = None
+fuyu = None
 def load_model():
-    global Fuyu, model_loaded
+    global fuyu, model_loaded, model_id
     if not model_loaded:
-        Fuyu.__init__
+        fuyu=Fuyu(model_id)
         model_loaded = True
         print("Model loaded.")
     else:
@@ -84,23 +84,24 @@ def load_model():
 
 
 def unload_model():
-    global Fuyu, model_loaded
+    global fuyu, model_loaded
     if model_loaded:
-        Fuyu = None
+        fuyu = None
         model_loaded = False
         torch.cuda.empty_cache()
-        del Fuyu
+        del fuyu
         gc.collect()
         print("Model unloaded.")
     else:
         print("Model already unloaded.")
 
 def gen_caption(image, prompt, max_new_tokens):
-    load_model()
-    if Fuyu is None:
+    # load_model()
+    if fuyu is None:
         print("Model not loaded.")
         return None
-    generation_text = Fuyu.prompt(image, prompt, max_new_tokens)
+    generation_text = fuyu.prompt(prompt, image, max_new_tokens)
+    print(f"Generated text: {generation_text}")
     return generation_text
 
 def save_csv_f(caption, output_dir, image_filename):
@@ -149,15 +150,14 @@ def prepare(image, process_type, input_dir, output_dir, save_csv, save_txt, prom
             if stop_batch_processing:
                 stop_batch_processing = False
                 return "Batch processing is stopped."
-            image = Image.open(f"{input_dir}/{image_filename}")
+            p_image = Image.open(f"{input_dir}/{image_filename}").convert("RGB")
             print(f"Processing {image_filename}")
-            print("Caption:")
-            caption = gen_caption(image, prompt, max_length)
+            caption = gen_caption(p_image, prompt, max_length)
             if save_csv:
                 save_csv_f(caption, output_dir, image_filename)
             if save_txt:
                 save_txt_f(caption, output_dir, image_filename)
-            image.close()
+            p_image.close()
             
             # Update the progress bar
             progress_bar.update(1)
@@ -202,7 +202,7 @@ def gui():
         prompt = gr.Textbox(label="Prompt", placeholder="Enter your description prompt here.")
         with gr.Tabs() as tabs:
             with gr.TabItem("Single Image"):
-                input_image = gr.Image(label="Image", type='filepath')
+                input_image = gr.Image(label="Image", type='pil')
                 output_text_single = gr.Textbox(label="Generated Caption(s)", lines=10, placeholder="Generated captions will appear here...")
                 # prompt = gr.Textbox(label="Prompt", placeholder="Enter your description prompt here.")
                 generate_caption_btn = gr.Button("Generate Caption", variant="primary")
